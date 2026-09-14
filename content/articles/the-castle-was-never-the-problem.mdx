@@ -1,0 +1,84 @@
+---
+title: "The Castle Was Never the Problem"
+slug: "the-castle-was-never-the-problem"
+subtitle: "Why thinking about cybersecurity as a castle can make us misunderstand modern infrastructure."
+author: "Hope Akpabio"
+category: "Security"
+series: "security-reconsidered"
+seriesOrder: 2
+date: "2026-06-22"
+excerpt: "The castle-and-moat model isn't wrong because perimeters are useless. It's wrong because it teaches you to stop asking questions the moment something is denied entry."
+tags: ["Kubernetes", "Security", "Zero Trust", "Networking"]
+audiences: ["engineer", "recruiter", "researcher"]
+featured: true
+keyIdea: "A perimeter that holds tells you where an attacker didn't get in. It tells you nothing about where they're still trying, or what's already inside."
+sources:
+  - label: "NIST SP 800-207: Zero Trust Architecture"
+    url: "https://csrc.nist.gov/publications/detail/sp/800-207/final"
+    kind: "standard"
+  - label: "Kubernetes Network Policies"
+    url: "https://kubernetes.io/docs/concepts/services-networking/network-policies/"
+    kind: "documentation"
+  - label: "Google BeyondCorp: A New Approach to Enterprise Security"
+    url: "https://research.google/pubs/pub43231/"
+    kind: "paper"
+relatedSlugs:
+  [
+    "i-thought-security-meant-blocking-the-attack",
+    "the-security-control-that-worked-too-well",
+  ]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+repo:
+  name: "k8s-admission-audit-lab"
+  description: "The Kyverno policy, kind cluster, and load script behind the evidence gap described in this article."
+  url: "https://github.com/future-stacks/k8s-admission-audit-lab"
+  technologies: ["Kubernetes", "Kyverno", "kind", "Audit Logging"]
+---
+
+## The assumption
+
+The castle-and-moat model is probably the most durable metaphor in security. Harden the perimeter, control who gets in, trust whoever's already inside. It's intuitive, it's old, and for a long time it mapped reasonably well onto how infrastructure actually looked: a data center with a defined edge, a small number of ways in, and a network you controlled from end to end.
+
+I don't think the metaphor was ever fully accurate. But it was *close enough* for long enough that a lot of us, myself included, absorbed it as a mental model for how security should work — even after the infrastructure it described had stopped existing.
+
+<KeyIdea>
+A perimeter that holds tells you where an attacker didn't get in. It tells you nothing about where they're still trying, or what's already inside.
+</KeyIdea>
+
+## The problem
+
+Modern infrastructure doesn't have a castle. It has a Kubernetes cluster with dozens of namespaces, a service mesh, workloads that talk to each other constantly, third-party APIs, CI pipelines with their own credentials, and a perimeter that is, at best, a fuzzy administrative boundary rather than a network one. There is no single wall. There are hundreds of small, mostly-unexamined trust decisions, made by default, most of them saying yes.
+
+The dangerous part of the castle metaphor isn't the wall. Walls are fine — a well-configured perimeter stops a huge amount of noise before it becomes your problem. The dangerous part is what the metaphor teaches you to *stop asking* once the wall holds. In a castle, if the gate didn't open, the threat is outside, and outside is not your concern until it's at the gate again. Applied to infrastructure, that becomes: if the request was denied, the incident is over.
+
+It usually isn't. It's just the part you can see.
+
+## The interactive part: what's actually inside the perimeter
+
+Click through the layers below. Each one is a real Kubernetes control point — the kind that shows up in almost every production cluster — and each one makes a different, mostly implicit trust decision. The "castle wall" people usually picture is layer one. There are at least four more behind it that decide what happens next.
+
+<KubernetesTrustDiagram />
+
+Every one of those layers can fail *open* under some condition — a webhook timeout, a misconfigured selector, an overly broad service account — and every one of those failures looks, from outside the cluster, exactly like the castle wall holding. That's the part the metaphor hides: the wall isn't one thing. It's a chain, and the chain's strength is its weakest silent link, not its most visible one.
+
+## What changed my mind
+
+I went looking for a concrete case rather than arguing from the metaphor, and ran [an experiment on network policy misconfiguration](/lab/network-policy-misconfiguration-blast-radius) — deliberately introducing the kind of typo that passes code review because the YAML is syntactically correct. A `NetworkPolicy` whose selector matched zero pods instead of the intended service. From the outside, from `kubectl describe`, from the CNI's own metrics: everything looked healthy. Ingress into the namespace it was supposed to protect was, in fact, completely open.
+
+Nothing was denied. No gate closed. No log entry said "policy misconfigured." The castle's wall, in this case, was a picture of a wall.
+
+<Counterargument>
+The strongest version of the counterargument is this: perimeter controls still stop the overwhelming majority of real attack traffic, and spending equal attention on "what if the wall doesn't actually hold" for every control is a good way to build nothing, because you can second-guess any control indefinitely. Defense in depth is expensive, and not every system needs zero trust's assumption of universal hostility. A blog's static site host doesn't need the same posture as a payments cluster.
+
+That's fair, and I don't think the answer is to distrust every layer equally, all the time. But the conclusion isn't "trust the wall." It's "know which of your walls you've actually tested, and which ones you're trusting because they've never been challenged." Those are very different confidence levels wearing the same badge. The network policy in my experiment had never been meaningfully attacked — it had just never been *checked*, and an unchecked control isn't evidence of security. It's an absence of a finding, which is a different thing wearing the same clothes.
+</Counterargument>
+
+## What I think now
+
+I still build perimeters. I still think the outermost gate matters — it filters an enormous amount of noise before it reaches anything more expensive to defend. What I no longer do is treat a held perimeter as the end of the security question for a given request. The real question was never "did it get past the wall." It's "what did the system decide, silently, at every layer behind the wall, and would I actually know if one of those decisions was wrong?"
+
+The castle was never the problem. The problem was believing the castle was the whole building.
+
+## The takeaway
+
+A perimeter that holds tells you where an attacker didn't get in. It doesn't tell you what's happening at the layers behind it, and modern infrastructure has far more of those layers than the castle metaphor has room for. Zero trust isn't a rejection of perimeters — it's an admission that the interesting security questions live *inside* them now.

@@ -1,0 +1,58 @@
+---
+title: "When Prevention Isn't Detection"
+slug: "when-prevention-isnt-detection"
+subtitle: "Two controls can share a dashboard and still be answering completely different questions."
+author: "Hope Akpabio"
+category: "Cloud Security"
+series: "security-reconsidered"
+seriesOrder: 3
+date: "2026-07-20"
+excerpt: "Most security stacks conflate 'we stopped it' with 'we understood it.' The gap between those two claims is where the expensive incidents live."
+tags: ["Security", "Observability", "Cloud"]
+audiences: ["engineer", "researcher"]
+keyIdea: "Ask a security control two separate questions: did it stop the bad thing, and did it explain the bad thing. Most controls can only ever answer one."
+sources:
+  - label: "MITRE ATT&CK: Detection vs. Prevention"
+    url: "https://attack.mitre.org/"
+    kind: "research"
+  - label: "AWS GuardDuty Documentation"
+    url: "https://docs.aws.amazon.com/guardduty/"
+    kind: "documentation"
+relatedSlugs: ["i-thought-security-meant-blocking-the-attack", "the-castle-was-never-the-problem"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+Security tooling vendors sell "prevention and detection" as a single capability, usually as two checkboxes on the same feature list. It's easy to absorb the implication: buy the platform, and you get both, roughly for free, roughly at the same time. I believed some version of this for longer than I'd like to admit — that a WAF blocking a SQL injection attempt was, functionally, also detecting it, because obviously *something* logged the block.
+
+<KeyIdea>
+Ask a security control two separate questions: did it stop the bad thing, and did it explain the bad thing. Most controls can only ever answer one, and the platforms that bundle both often bundle them at very different levels of quality.
+</KeyIdea>
+
+## The problem
+
+Prevention and detection optimize for opposite failure modes, and that's the part the shared dashboard hides. A prevention control's job is to be conservative — when in doubt, block, because a false positive costs you a legitimate request and a false negative costs you a breach. A detection control's job is closer to the opposite: it needs to surface *enough* signal to be useful without drowning the person reading it in noise, which means it's tuned to under-alert rather than over-block.
+
+Those are different optimization targets. A system tuned well for one is not automatically tuned well for the other. And because prevention is the flashier, more demoable capability — "look, it stopped the attack live" — it's usually where the engineering investment goes first, with detection treated as a byproduct rather than its own discipline.
+
+## The experiment
+
+I wanted a number, not just an intuition, so I went back to [the admission-control experiment](/lab/can-admission-control-prevent-without-evidence) and looked specifically at what changed between the prevention outcome and the detection outcome as I varied one thing: audit verbosity. At the default level, prevention was 100% effective — every disallowed pod spec was rejected — and detection quality, measured as "could I reconstruct what was attempted," was close to zero. At the highest verbosity level, detection quality was excellent, but the audit log volume increased by roughly 40x, which is the actual reason most clusters don't run at that level.
+
+## What the evidence showed
+
+Prevention quality and detection quality didn't move together. They were almost orthogonal — you could hold prevention constant at "always blocks the bad pod spec" while detection quality swung from unusable to excellent, purely as a function of a setting most teams never revisit after initial cluster setup. That's the concrete version of the abstract claim: these are two different systems wearing one name, and tuning one does nothing to the other.
+
+## You might disagree
+
+You could reasonably argue that for a huge share of security events, you don't need detection quality at all — if the WAF blocked the SQL injection attempt, the incident is over, and spending engineering time reconstructing exactly which query was tried is a research exercise, not an operational necessity. For a single blocked request, sure. But attackers rarely try once. The value of detection isn't explaining one blocked attempt — it's noticing the *pattern* across a hundred blocked attempts that tells you this isn't noise, it's reconnaissance, and it's increasing. Prevention alone can't tell you that a wall is being tested with increasing sophistication. It can only tell you the wall, so far, has held.
+
+## What I think now
+
+I now treat "prevention" and "detection" as two line items in any security design, not one. When I add a control, I ask what it prevents and, separately and explicitly, what it lets me detect — and if the second answer is thin, I treat that as a real gap, not an acceptable trade-off I get to ignore because the first answer was strong.
+
+## The takeaway
+
+A dashboard that shows a blocked request has told you about one moment. It has not told you about the pattern that moment belongs to. Building for detection is a distinct investment from building for prevention, and skipping it doesn't make the risk go away — it just moves the cost from "engineering time now" to "incomplete incident report later."

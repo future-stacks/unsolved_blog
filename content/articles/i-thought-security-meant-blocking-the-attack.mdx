@@ -1,0 +1,64 @@
+---
+title: "I Thought Security Meant Blocking the Attack"
+slug: "i-thought-security-meant-blocking-the-attack"
+subtitle: "For most of my career, 'the control worked' and 'we're safe' meant the same thing. They don't."
+author: "Hope Akpabio"
+category: "Security"
+series: "security-reconsidered"
+seriesOrder: 1
+date: "2026-06-01"
+excerpt: "The first thing I had to unlearn about infrastructure security wasn't a technique. It was what 'working' meant."
+tags: ["Security", "Kubernetes", "Fundamentals"]
+audiences: ["engineer", "student", "recruiter"]
+keyIdea: "A security control that successfully blocks an action has only answered one question. It hasn't told you what else you need to know."
+sources:
+  - label: "Kubernetes Admission Controllers Reference"
+    url: "https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/"
+    kind: "documentation"
+  - label: "NIST SP 800-53: Security and Privacy Controls"
+    url: "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final"
+    kind: "standard"
+relatedSlugs: ["the-castle-was-never-the-problem"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+Early on, I thought about security the way most engineers do before they've had to clean up after an incident: as a series of gates. You put a gate in front of the thing you want to protect, the gate has rules, and if the rules are good, bad requests don't get through. A firewall rule. An RBAC policy. An admission webhook that rejects a misconfigured pod. Deploy the gate, watch it reject the bad request, close the ticket.
+
+For a long time, "the control worked" and "we're safe" were the same sentence in my head.
+
+<KeyIdea>
+A security control that successfully blocks an action has only answered one question — *did this specific attempt succeed*. It hasn't told you who tried, how often, or what they were actually attempting. Prevention and evidence are two different things a control can give you, and most controls are only built to give you one.
+</KeyIdea>
+
+## The problem
+
+The sentence started coming apart the first time I had to explain, after the fact, exactly what had been attempted against a system I was responsible for. Not whether something bad had happened — I knew it hadn't, because the control had blocked it. What I couldn't answer was *what* had been attempted, *how many times*, from *where*, and whether it looked like a mistake or a probe.
+
+The honest answer was: I don't know. The control did its job. Nobody could tell me anything else.
+
+That's a strange position to be in. We talk about security controls as if their job is binary — stop the bad thing, don't stop the good thing — but a control that stops something is also, whether we've designed for it or not, a witness. And most of the controls I'd deployed were bad witnesses. They'd testify that *something* happened and refuse to say what.
+
+## What changed my mind
+
+The moment this became concrete for me was staring at a Kubernetes audit log after a policy correctly rejected a batch of pods requesting `hostNetwork: true` — a real privilege-escalation vector, not a hypothetical. The policy worked. Twelve times. What I wanted from the audit trail was simple: who tried this, and was it increasing.
+
+What I got, at the audit verbosity most clusters ship with by default, was a verb, a response code, and a username. No pod spec. No way to distinguish this denial from any other kind of validation failure. I could prove the wall held. I couldn't describe what hit it.
+
+I wrote up the full version of this as [an experiment in The Lab](/lab/can-admission-control-prevent-without-evidence) — running the actual attempt, checking the actual audit trail, measuring the actual cost of getting better evidence. The short version: the gap wasn't a bug. It was the default, and the default exists because verbose auditing is expensive at scale. Someone, somewhere, made a deliberate trade between visibility and cost, and that trade had quietly become mine without my choosing it.
+
+## The uncomfortable part
+
+The uncomfortable part isn't that the default was wrong. Defaults are compromises; that's what makes them defaults. The uncomfortable part is how long I'd been treating "the control blocked it" as a complete sentence, when it's actually the beginning of a question: *blocked it, and told you what, exactly?*
+
+Prevention and detection get bundled together in how we talk about security — "we have controls in place" — as if a control that stops something automatically produces the evidence a control that watches something would. It doesn't. They're different instruments, built to answer different questions, and a security posture built entirely out of the first kind is a posture that can be breached in ways you'll never be able to fully describe, even after you've stopped the breach.
+
+## What I think now
+
+I still think prevention matters more than detection, if I have to rank them — stopping the bad thing is better than a good record of the bad thing happening. But I no longer think of a prevention control as "done" when it prevents. I ask a second question now, for every control I deploy: if this fires ten times tonight, what will I actually be able to reconstruct tomorrow? If the answer is "not much," that's not a detail to fix later. It's a second control I haven't built yet, disguised as a finished one.
+
+## The takeaway
+
+A control that prevents an action does not necessarily provide evidence that someone attempted it. Treating "it was blocked" as equivalent to "we understand what happened" is the assumption this whole series exists to keep testing — starting with the next one, where the same idea shows up at the scale of an entire architecture, not just one policy.

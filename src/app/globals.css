@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #faf7f1;
+  --bg-subtle: #f2ede2;
+  --bg-raised: #ffffff;
+  --fg: #17151a;
+  --fg-secondary: #55524c;
+  --fg-tertiary: #8a867c;
+  --border: #e4ddcf;
+  --border-strong: #d2c9b6;
+  --accent: #b5472a;
+  --accent-fg: #faf7f1;
+  --accent-soft: #f2e0d5;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"],
+:root.dark {
+  --bg: #0e0d0f;
+  --bg-subtle: #18161a;
+  --bg-raised: #201e22;
+  --fg: #f3f0ea;
+  --fg-secondary: #a6a19a;
+  --fg-tertiary: #726e68;
+  --border: #2b2830;
+  --border-strong: #3a3640;
+  --accent: #e2884f;
+  --accent-fg: #17151a;
+  --accent-soft: #382a22;
+
+  color-scheme: dark;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+}
+
+::selection {
+  background-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.underline-link {
+  position: relative;
+  text-decoration: none;
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  transition: background-size 0.25s ease;
+}
+
+.underline-link:hover,
+.underline-link:focus-visible {
+  background-size: 100% 1px;
+}
+
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+}
+
+/* Code blocks */
+pre {
+  background: var(--bg-subtle) !important;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+:not(pre) > code {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.85em;
+}
+
+pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+}

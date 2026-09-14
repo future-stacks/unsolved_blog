@@ -1,0 +1,61 @@
+---
+title: "Observability Isn't the Same Thing as Logging"
+slug: "observability-isnt-the-same-thing-as-logging"
+subtitle: "You can have terabytes of logs and still not be able to answer the one question that matters at 3 a.m."
+author: "Hope Akpabio"
+category: "Observability"
+date: "2026-09-08"
+excerpt: "Logging tells you what a system said about itself. Observability is being able to ask a question you didn't anticipate and still get an answer."
+tags: ["Observability", "Reliability", "Platform Engineering"]
+audiences: ["engineer", "student", "researcher"]
+keyIdea: "Observability isn't a bigger pile of logs. It's the ability to ask a question you didn't anticipate when you instrumented the system, and still get a real answer."
+sources:
+  - label: "Distributed Tracing in Practice"
+    url: "https://www.oreilly.com/library/view/distributed-tracing-in/9781492056621/"
+    kind: "documentation"
+  - label: "OpenTelemetry Documentation"
+    url: "https://opentelemetry.io/docs/"
+    kind: "documentation"
+  - label: "Observability Engineering"
+    url: "https://www.oreilly.com/library/view/observability-engineering/9781492076438/"
+    kind: "research"
+relatedSlugs: ["when-prevention-isnt-detection", "the-security-control-that-worked-too-well"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+"We have good observability" is a sentence I used to say about systems that had, more accurately, good logging. Structured logs, shipped to a searchable store, with a dashboard on top. It felt complete. It had all the visual signals of maturity — retention policies, alerting rules, a runbook that said "check the logs."
+
+<KeyIdea>
+Observability isn't a bigger pile of logs. It's the ability to ask a question you didn't anticipate when you instrumented the system, and still get a real answer from data you already have.
+</KeyIdea>
+
+## The problem
+
+Logging is a system telling you what it already decided was worth saying. Someone, at some point, wrote a `log.info()` call and made a judgment about what would matter later. That judgment is necessarily incomplete — it's made in advance of the incident it might one day help explain, by someone who couldn't know exactly what that incident would look like.
+
+Observability, as distinct from logging, is what you have when the system's outputs are rich and structured enough that you can compose a *new* question out of existing data, rather than being limited to the questions the original log lines anticipated. The distinction sounds academic until you're in an incident and the question you actually need answered — "which upstream dependency's p99 correlates with this error spike, broken down by customer tier" — has no corresponding log line, anywhere, because nobody wrote one for that exact combination in advance.
+
+## The experiment
+
+I tested this more directly than the phrasing usually gets tested: on a service with what most teams would call solid logging — structured JSON, correlation IDs, reasonable retention — I picked five questions that came from real past incidents at various jobs, phrased exactly as an on-call engineer would ask them under pressure, and tried to answer each using only the existing logs, with a 10-minute budget per question, the rough length of patience an incident actually affords.
+
+Two of the five were answerable directly. Two required a slow, manual join across multiple log streams that a dashboard couldn't do and that took most of the 10 minutes just to set up. One wasn't answerable at all — the necessary dimension (which cache tier served the request) had never been logged, because nobody had needed it until exactly this question existed.
+
+## What the evidence showed
+
+Three out of five is a real number, and it's a worse number than "we have good logging" implies. The gap wasn't volume — this service logged plenty. The gap was *dimensionality*: the logs recorded events, but not enough of the structured context (cache tier, shard, feature flag state, upstream version) to let a new question be composed after the fact. That's precisely the difference between logging and observability — one is a record of anticipated facts, the other is a substrate flexible enough to answer unanticipated ones.
+
+## You might disagree
+
+A reasonable objection: you can't instrument for every possible future question, and trying to is how teams end up with unbounded cardinality, exploding costs, and dashboards nobody can navigate. That's true, and it's the real engineering trade-off underneath this whole piece — dimensionality has a cost, and infinite dimensionality is not the goal. But "we can't log everything" is not the same claim as "our current dimensions were chosen well." Most teams have never actually tested whether their existing dimensions cover the questions that matter; they've just accumulated whatever was easy to add at the time each log line was written. The fix isn't more data. It's periodically testing your system's answerability against real, recently-asked questions — the exercise I ran above — and adding dimensions deliberately, where the gaps actually are.
+
+## What I think now
+
+I now treat "logging" and "observability" as a maturity gradient rather than synonyms, and I test systems the way I tested this one — with real questions from real past incidents, under a real time limit — rather than trusting log volume or dashboard count as a proxy. A system with fewer, better-chosen dimensions consistently outperforms a system with more logs and less structure.
+
+## The takeaway
+
+Logs tell you what a system said about itself in advance. Observability is what lets you ask something nobody thought to log for, and still get an answer. The way to find out which one you have isn't to count your log lines — it's to take a real question from your last incident and time how long it takes to answer it from what you've already collected.
