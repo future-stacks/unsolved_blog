@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { site } from "@/lib/site";
+import { FullLogo } from "./logo";
 
 export function Footer() {
   return (
     <footer className="border-t border-border bg-bg">
       <div className="mx-auto max-w-wide px-5 py-14 sm:px-8">
         <div className="flex flex-col gap-10 sm:flex-row sm:justify-between">
-          <div className="max-w-xs">
-            <p className="font-serif text-lg font-semibold text-fg">{site.name}</p>
-            <p className="mt-2 text-sm text-fg-secondary">{site.positioning}</p>
+          <div className="max-w-xs text-fg">
+            <FullLogo className="h-auto w-full max-w-[280px]" />
           </div>
 
           <div className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm sm:flex sm:gap-12">

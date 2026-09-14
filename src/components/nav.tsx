@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 import { site } from "@/lib/site";
 import { ThemeToggle } from "./theme-toggle";
 import { Search } from "./search";
+import { WordmarkLogo } from "./logo";
 
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
@@ -39,13 +40,10 @@ export function Nav() {
           scrolled ? "h-14" : "h-20"
         }`}
       >
-        <Link
-          href="/"
-          className={`font-serif font-semibold tracking-tight text-fg transition-all duration-300 ${
-            scrolled ? "text-lg" : "text-xl"
-          }`}
-        >
-          UNRESOLVED
+        <Link href="/" aria-label="UNRESOLVED — home" className="text-fg">
+          <WordmarkLogo
+            className={`w-auto transition-all duration-300 ${scrolled ? "h-5" : "h-6"}`}
+          />
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
@@ -92,7 +90,7 @@ export function Nav() {
           />
           <div className="absolute right-0 top-0 flex h-full w-[82%] max-w-xs flex-col gap-1 bg-bg-raised px-6 py-6 shadow-2xl">
             <div className="mb-6 flex items-center justify-between">
-              <span className="font-serif text-lg font-semibold">UNRESOLVED</span>
+              <WordmarkLogo className="h-5 w-auto text-fg" />
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
