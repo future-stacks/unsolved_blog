@@ -31,17 +31,15 @@ export function WordmarkLogo({ className = "h-7 w-auto" }: { className?: string 
       >
         UNRESO
       </text>
-      <text
-        x="785"
-        y="185"
-        textAnchor="middle"
-        fontFamily="Arial, Helvetica, sans-serif"
-        fontSize="122"
-        fontWeight="500"
-        fill="url(#brand-gradient-wordmark)"
-      >
-        \
-      </text>
+      <line
+        x1="763"
+        y1="84"
+        x2="815"
+        y2="200"
+        stroke="url(#brand-gradient-wordmark)"
+        strokeWidth="24"
+        strokeLinecap="round"
+      />
       <text
         x="910"
         y="185"
@@ -84,17 +82,15 @@ export function FullLogo({ className = "h-auto w-full max-w-md" }: { className?:
       >
         UNRESO
       </text>
-      <text
-        x="785"
-        y="185"
-        textAnchor="middle"
-        fontFamily="Arial, Helvetica, sans-serif"
-        fontSize="122"
-        fontWeight="500"
-        fill="url(#brand-gradient-full)"
-      >
-        \
-      </text>
+      <line
+        x1="763"
+        y1="84"
+        x2="815"
+        y2="200"
+        stroke="url(#brand-gradient-full)"
+        strokeWidth="24"
+        strokeLinecap="round"
+      />
       <text
         x="910"
         y="185"

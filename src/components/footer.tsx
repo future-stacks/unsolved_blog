@@ -6,11 +6,11 @@ export function Footer() {
   return (
     <footer className="border-t border-border bg-bg">
       <div className="mx-auto max-w-wide px-5 py-14 sm:px-8">
-        <div className="flex flex-col gap-10 sm:flex-row sm:justify-between">
-          <div className="max-w-xs text-fg">
-            <FullLogo className="h-auto w-full max-w-[280px]" />
-          </div>
+        <div className="text-fg">
+          <FullLogo className="h-auto w-full max-w-md sm:max-w-lg" />
+        </div>
 
+        <div className="mt-10 flex flex-col gap-10 sm:flex-row sm:justify-end">
           <div className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm sm:flex sm:gap-12">
             <div className="flex flex-col gap-2">
               {site.footerLinks.slice(0, 3).map((l) => (
