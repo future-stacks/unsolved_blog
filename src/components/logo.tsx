@@ -20,34 +20,34 @@ export function WordmarkLogo({ className = "h-7 w-auto" }: { className?: string 
         </linearGradient>
       </defs>
       <text
-        x="600"
+        x="145"
         y="185"
-        textAnchor="middle"
-        fontFamily="Arial, Helvetica, sans-serif"
+        textLength="555"
+        lengthAdjust="spacingAndGlyphs"
+        fontFamily="var(--font-inter), Arial, Helvetica, sans-serif"
         fontSize="112"
-        fontWeight="600"
-        letterSpacing="8"
+        fontWeight="700"
         fill="currentColor"
       >
         UNRESO
       </text>
       <line
-        x1="763"
-        y1="84"
-        x2="815"
-        y2="200"
+        x1="718"
+        y1="105"
+        x2="758"
+        y2="185"
         stroke="url(#brand-gradient-wordmark)"
-        strokeWidth="24"
+        strokeWidth="18"
         strokeLinecap="round"
       />
       <text
-        x="910"
+        x="775"
         y="185"
-        textAnchor="middle"
-        fontFamily="Arial, Helvetica, sans-serif"
+        textLength="270"
+        lengthAdjust="spacingAndGlyphs"
+        fontFamily="var(--font-inter), Arial, Helvetica, sans-serif"
         fontSize="112"
-        fontWeight="600"
-        letterSpacing="8"
+        fontWeight="700"
         fill="currentColor"
       >
         VED
@@ -71,34 +71,34 @@ export function FullLogo({ className = "h-auto w-full max-w-md" }: { className?:
       </defs>
 
       <text
-        x="600"
+        x="145"
         y="185"
-        textAnchor="middle"
-        fontFamily="Arial, Helvetica, sans-serif"
+        textLength="555"
+        lengthAdjust="spacingAndGlyphs"
+        fontFamily="var(--font-inter), Arial, Helvetica, sans-serif"
         fontSize="112"
-        fontWeight="600"
-        letterSpacing="8"
+        fontWeight="700"
         fill="currentColor"
       >
         UNRESO
       </text>
       <line
-        x1="763"
-        y1="84"
-        x2="815"
-        y2="200"
+        x1="718"
+        y1="105"
+        x2="758"
+        y2="185"
         stroke="url(#brand-gradient-full)"
-        strokeWidth="24"
+        strokeWidth="18"
         strokeLinecap="round"
       />
       <text
-        x="910"
+        x="775"
         y="185"
-        textAnchor="middle"
-        fontFamily="Arial, Helvetica, sans-serif"
+        textLength="270"
+        lengthAdjust="spacingAndGlyphs"
+        fontFamily="var(--font-inter), Arial, Helvetica, sans-serif"
         fontSize="112"
-        fontWeight="600"
-        letterSpacing="8"
+        fontWeight="700"
         fill="currentColor"
       >
         VED
