@@ -10,15 +10,9 @@ export function Newsletter({ compact = false }: { compact?: boolean }) {
     e.preventDefault();
     if (!email) return;
     setState("loading");
-    try {
-      await fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-    } catch {
-      // Non-fatal: still acknowledge the signup intent.
-    }
+    // Static export has no server: wire this to a Cloudflare Pages Function
+    // or a third-party form endpoint (Buttondown, ConvertKit) when ready.
+    await new Promise((resolve) => setTimeout(resolve, 400));
     setState("done");
   }
 

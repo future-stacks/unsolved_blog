@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Fuse from "fuse.js";
 import { Search as SearchIcon, X } from "lucide-react";
 import type { SearchItem } from "@/lib/search-index";
 
@@ -11,7 +12,26 @@ export function Search() {
   const [results, setResults] = useState<SearchItem[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fuseRef = useRef<Fuse<SearchItem> | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    if (!open || fuseRef.current) return;
+    fetch("/search-index.json")
+      .then((res) => res.json())
+      .then((items: SearchItem[]) => {
+        fuseRef.current = new Fuse(items, {
+          keys: [
+            { name: "title", weight: 0.6 },
+            { name: "description", weight: 0.25 },
+            { name: "category", weight: 0.15 },
+          ],
+          threshold: 0.35,
+          ignoreLocation: true,
+        });
+      })
+      .catch(() => {});
+  }, [open]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -47,24 +67,16 @@ export function Search() {
   }, [open]);
 
   useEffect(() => {
-    if (!query.trim()) {
+    if (!query.trim() || !fuseRef.current) {
       setResults([]);
       return;
     }
-    const controller = new AbortController();
     const timeout = setTimeout(() => {
-      fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
-        .then((res) => res.json())
-        .then((data) => {
-          setResults(data.results ?? []);
-          setActiveIndex(0);
-        })
-        .catch(() => {});
-    }, 150);
-    return () => {
-      clearTimeout(timeout);
-      controller.abort();
-    };
+      const matches = fuseRef.current!.search(query).slice(0, 12).map((r) => r.item);
+      setResults(matches);
+      setActiveIndex(0);
+    }, 100);
+    return () => clearTimeout(timeout);
   }, [query]);
 
   function onKeyDown(e: React.KeyboardEvent) {

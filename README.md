@@ -28,6 +28,29 @@ Everything lives in version control, no external CMS:
 - `src/data/glossary.ts` — linkable glossary terms
 - `src/data/reading-list.ts`, `src/data/changelog.ts`
 
+## Deploying to Cloudflare Pages
+
+This is a fully static export (`output: "export"` in `next.config.mjs`) — no server,
+no edge functions, just static HTML/CSS/JS/JSON in `out/`.
+
+**Dashboard:** Connect the repo in the Cloudflare Pages dashboard and set:
+
+- Framework preset: `Next.js (Static HTML Export)`
+- Build command: `npm run build`
+- Build output directory: `out`
+
+**CLI:**
+
+```bash
+npm run build
+npx wrangler pages deploy out --project-name=unresolved
+```
+
+Search (`/search-index.json`) and the newsletter form are both client-side only —
+there's no API route left in the app (static export can't ship one). To collect real
+subscribers, wire the form in `src/components/newsletter.tsx` to a Cloudflare Pages
+Function, a Worker, or a third-party form endpoint (Buttondown, ConvertKit, etc.).
+
 ## Running locally
 
 ```bash
