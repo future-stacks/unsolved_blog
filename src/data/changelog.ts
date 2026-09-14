@@ -2,6 +2,16 @@ import type { ChangelogEntry } from "@/lib/types";
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "v0.5",
+    date: "September 2026",
+    changes: [
+      "Added the Inside Alibaba Cloud series — ten articles on cloud security, AI infrastructure, and platform engineering",
+      "Added six glossary terms for Alibaba Cloud services (RAM, Security Group, ActionTrail, OSS, PAI, ACK)",
+      "Added the UNRESOLVED logo to the nav and footer",
+      "Moved to a static export, deployed on Vercel",
+    ],
+  },
+  {
     version: "v0.4",
     date: "September 2026",
     changes: [
