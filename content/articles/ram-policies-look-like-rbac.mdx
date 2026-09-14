@@ -1,0 +1,86 @@
+---
+title: "RAM Policies Look Like RBAC. They Don't Behave Like It."
+slug: "ram-policies-look-like-rbac"
+subtitle: "Alibaba Cloud's Resource Access Management borrows enough vocabulary from Kubernetes RBAC that it's easy to import the wrong mental model along with it."
+author: "Hope Akpabio"
+category: "Cloud Security"
+series: "inside-alibaba-cloud"
+seriesOrder: 1
+date: "2025-11-12"
+excerpt: "RAM and RBAC both use roles and policies. That surface similarity hides a structural difference that changes how a permission mistake actually plays out."
+tags: ["Alibaba Cloud", "RAM", "Cloud Security", "IAM"]
+audiences: ["engineer", "researcher"]
+keyIdea: "RBAC binds a role to an identity inside one cluster's boundary. RAM binds a policy to an identity across an entire account's surface area. Treating them as interchangeable concepts understates what a RAM mistake can reach."
+sources:
+  - label: "Alibaba Cloud RAM Documentation"
+    url: "https://www.alibabacloud.com/help/en/ram/"
+    kind: "documentation"
+  - label: "Kubernetes RBAC Documentation"
+    url: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
+    kind: "documentation"
+  - label: "AWS IAM vs RBAC: A Comparison"
+    url: "https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html"
+    kind: "documentation"
+relatedSlugs: ["i-thought-security-meant-blocking-the-attack", "an-ack-cluster-is-not-the-cluster-you-think-it-is"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+The first time I opened Alibaba Cloud's RAM console after spending years writing Kubernetes RBAC manifests, the vocabulary felt reassuringly familiar. Roles. Policies. Principals. Attachments. It was tempting to treat RAM as "RBAC, but for the whole account" and carry every intuition I had about Kubernetes permissions straight over.
+
+That transfer works for about the first ten minutes. Then it starts producing wrong answers.
+
+<KeyIdea>
+RBAC binds a role to an identity inside one cluster's boundary. RAM binds a policy to an identity across an entire account's surface area. Treating them as interchangeable concepts understates what a RAM mistake can reach.
+</KeyIdea>
+
+## The problem
+
+Kubernetes <GlossaryTerm slug="rbac">RBAC</GlossaryTerm> has a hard boundary: a `Role` is scoped to a namespace, a `ClusterRole` to a cluster, and neither reaches outside the cluster's own API server. If you get a `Role` wrong, the blast radius is a namespace. That's still bad — but it's bounded, and the boundary is structural, not a matter of discipline.
+
+<GlossaryTerm slug="ram">RAM</GlossaryTerm> has no equivalent hard wall. A RAM policy can grant access to ECS, OSS, RDS, PAI, and dozens of other product APIs in a single statement, because RAM's job is to govern an entire account's resources, not a single workload's namespace. There is no "cluster boundary" to fall back on — there's an account boundary, and everything inside it is potentially reachable by a permissive enough policy.
+
+Here's a RAM policy that looks reasonable at a glance:
+
+```json
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "oss:Get*",
+        "oss:List*",
+        "ecs:Describe*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+Nothing here says `oss:Delete` or `ecs:Terminate` — it looks read-only, and in a Kubernetes RBAC mindset, a read-only `Role` scoped to one namespace is low-stakes. But `"Resource": "*"` means this identity can list and read every OSS bucket and every ECS instance across the entire account, not one namespace's worth. A "read-only" mistake at account scope can still mean reading a bucket full of customer data that a different team, in a different project, forgot to lock down.
+
+## The experiment
+
+I built a small test: two identities, one styled as "the RBAC-minded version" (scoped tightly to a single application's resource group, mirroring how I'd write a Kubernetes `Role`) and one styled as "the RAM-native version" (a broader read-only grant across the account, which is closer to what I've seen shipped in real onboarding scripts because it's faster to write and passes fewer code reviews). I then asked a simple question of each: how many distinct OSS buckets and ECS instances can this identity enumerate across the account?
+
+The RBAC-minded identity, scoped to a resource group, could see exactly what I expected — the handful of resources tagged to that project. The RAM-native identity could enumerate every bucket and every instance across the account, including several that belonged to unrelated internal projects with no connection to the identity's stated purpose.
+
+## What the evidence showed
+
+Nothing about the second policy was a misconfiguration in the sense of a typo or a missing condition. It was syntactically correct and semantically exactly what it said. The gap wasn't in the policy — it was in my assumption that RAM's default granularity matches RBAC's. It doesn't. RAM defaults to account-wide `Resource: "*"` unless you deliberately scope it down with resource group conditions or explicit ARNs, while Kubernetes RBAC defaults to namespace scope unless you deliberately widen it with a `ClusterRole`. The defaults point in opposite directions.
+
+<Counterargument>
+You could argue this is just a documentation and training problem — Alibaba Cloud's own guidance recommends scoping RAM policies to resource groups, and anyone reading the docs carefully wouldn't make this mistake. That's true in principle. But RBAC's namespace default makes the safe behavior the path of least resistance; you have to actively reach for a `ClusterRole` to widen scope. RAM's account-wide default makes the *unsafe* behavior the path of least resistance; you have to actively reach for resource group conditions to narrow it. A system where the easy path is also the safe path fails less often than a system where they're the same amount of effort in opposite directions, regardless of how good the documentation is.
+</Counterargument>
+
+## What I think now
+
+I no longer treat "it looks like RBAC" as a reason to trust my RBAC instincts. Before writing any RAM policy now, I ask a question that doesn't have a Kubernetes equivalent: what resource groups, tags, or explicit ARNs does this policy need to be scoped to, given that the default is the entire account? That question doesn't exist in a namespace-scoped world, which is exactly why it's easy to forget to ask it.
+
+## The takeaway
+
+RAM and RBAC share vocabulary but not defaults. RBAC's namespace boundary makes narrow scope the path of least resistance; RAM's account-wide default makes broad scope the path of least resistance. Importing RBAC intuition into RAM policy design means importing a false sense of the blast radius you're actually working with.

@@ -1,0 +1,71 @@
+---
+title: "An OSS Bucket Set to 'Private' Isn't Always Private"
+slug: "an-oss-bucket-set-to-private"
+subtitle: "Bucket-level and object-level access control exist independently on Alibaba Cloud's Object Storage Service, and when they disagree, the more permissive one usually wins."
+author: "Hope Akpabio"
+category: "Cloud Security"
+series: "inside-alibaba-cloud"
+seriesOrder: 6
+date: "2026-04-08"
+excerpt: "Public bucket exposure is one of the oldest cloud misconfiguration classes there is. Testing it directly on OSS showed exactly how a bucket set to private can still leak individual objects."
+tags: ["Alibaba Cloud", "OSS", "Cloud Security", "Data Protection"]
+audiences: ["engineer", "student", "recruiter"]
+keyIdea: "A bucket's access control list is a default, not a ceiling. Any object with its own, more permissive ACL overrides the bucket-level setting for that object specifically — which means 'the bucket is private' is not the same claim as 'every object in it is private.'"
+sources:
+  - label: "Alibaba Cloud OSS Access Control Documentation"
+    url: "https://www.alibabacloud.com/help/en/oss/user-guide/overview-of-access-control/"
+    kind: "documentation"
+  - label: "OWASP: Cloud Storage Misconfiguration"
+    url: "https://owasp.org/www-project-top-10-cloud-security-risks/"
+    kind: "research"
+relatedSlugs: ["what-actiontrail-actually-records", "a-security-group-is-not-a-firewall"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+Public cloud storage exposure has been a well-known problem for long enough that "we set the bucket to private" felt, reasonably, like a settled question. If the bucket-level setting says private, the natural inference is that the objects inside inherit that setting, the same way a locked front door implies the rooms behind it are inaccessible.
+
+<KeyIdea>
+A bucket's access control list is a default, not a ceiling. Any object with its own, more permissive ACL overrides the bucket-level setting for that object specifically — which means "the bucket is private" is not the same claim as "every object in it is private."
+</KeyIdea>
+
+## The problem
+
+<GlossaryTerm slug="oss">OSS</GlossaryTerm> access control operates at two independent layers: the bucket-level ACL (which sets the default for objects that don't specify their own) and the object-level ACL (which, when explicitly set, overrides the bucket default for that specific object). This is a genuinely useful feature — it lets you keep a bucket private overall while deliberately making a handful of specific objects public, like serving public assets from an otherwise-private bucket. The same mechanism that enables that legitimate use case also means a single API call, made once, by a script, a misconfigured upload tool, or a well-meaning developer testing something, can make one object in an otherwise-locked-down bucket publicly readable — permanently, until someone notices.
+
+And "someone notices" is doing a lot of work in that sentence, because a bucket-level scan that only checks the bucket's own ACL will report the bucket as private and be entirely correct, while missing every object that silently overrides it.
+
+## The experiment
+
+I created an OSS bucket with the bucket ACL set to private, uploaded a set of test objects, and then set one single object's ACL to `public-read` using a one-line API call — deliberately reproducing the kind of action that happens accidentally when someone follows an outdated tutorial, tests a "make this file shareable" feature, or runs an upload script with an incorrect default flag.
+
+```bash
+# Bucket ACL: private (set at creation, unchanged since)
+ossutil api put-bucket-acl --bucket my-data-bucket --acl private
+
+# One object, one command, overrides it for that object only
+ossutil api put-object-acl --bucket my-data-bucket \
+  --key reports/q3-internal-summary.pdf --acl public-read
+```
+
+I then ran two separate checks: a bucket-level ACL audit (the kind of check most security scanning tools run by default, because it's cheap — one API call per bucket) and an object-level ACL enumeration across every object in the bucket (expensive at scale, and something I've rarely seen run as a routine check rather than an incident-response step).
+
+## What the evidence showed
+
+The bucket-level audit reported the bucket as private, correctly, and would have satisfied any compliance check or security review that stopped at that layer. The object-level enumeration found the one object with a `public-read` ACL, fetchable by anyone with the URL, with no authentication required — sitting inside a bucket that every bucket-level tool would have cleared.
+
+At the scale of a single test object, this is a curiosity. At the scale of a real production bucket with thousands or millions of objects accumulated over years, an object-level ACL scan is exactly the kind of check that's expensive enough to get skipped in favor of the cheaper bucket-level one — which means the actual exposure surface (individual public objects) goes unaudited by default, in the exact configuration most teams believe constitutes "we checked."
+
+<Counterargument>
+You could argue this is working as designed — object-level ACL overrides are a documented, deliberate OSS feature, not a security flaw, and any team that wants object-level auditing has the tooling available to run it. That's correct, and I'm not calling this a bug. The issue is that the *default posture of most security tooling* — checking the cheap, bucket-level signal — creates a false sense of completeness, and nothing about the bucket-level "private" status warns you that it doesn't cover object-level exceptions. A tool that reports "bucket: private" without a corresponding "objects with overriding ACLs: N" number is reporting a partial answer as if it were a complete one.
+</Counterargument>
+
+## What I think now
+
+I now treat bucket-level ACL audits as necessary and explicitly insufficient, and I ask, for any bucket handling sensitive data, whether object-level ACL enumeration runs as a routine, scheduled check — not just as something reached for after an exposure is already suspected. On OSS specifically, that means periodically listing objects and checking for any ACL that diverges from the bucket default, rather than trusting that "bucket: private" covers everything inside it.
+
+## The takeaway
+
+Bucket-level privacy settings are a default, not a guarantee, because object-level ACLs can silently override them for individual objects. The cheap check — is the bucket private — is not the check that would have caught this. The expensive one — does every object's ACL match what the bucket implies — is the one that actually answers the question "is our data exposed."

@@ -1,0 +1,66 @@
+---
+title: "Cloud Firewall Logs Everything — Except What It Drops"
+slug: "cloud-firewall-logs-everything-except-what-it-drops"
+subtitle: "A traffic log that's complete for allowed traffic and sampled for blocked traffic will always make your defenses look calmer than they are."
+author: "Hope Akpabio"
+category: "Cloud Security"
+series: "inside-alibaba-cloud"
+seriesOrder: 10
+date: "2026-08-11"
+excerpt: "Closing out ten months of testing Alibaba Cloud with the same question the series opened on: a control that stops something is not automatically a control that tells you about it."
+tags: ["Alibaba Cloud", "Cloud Firewall", "Observability", "Cloud Security"]
+audiences: ["engineer", "researcher"]
+keyIdea: "Under sustained load, a logging pipeline samples before it drops connections — meaning the traffic most worth investigating, the traffic arriving fast enough to stress the system, is exactly the traffic most likely to be under-represented in the log."
+sources:
+  - label: "Alibaba Cloud Cloud Firewall Documentation"
+    url: "https://www.alibabacloud.com/help/en/cloud-firewall/"
+    kind: "documentation"
+  - label: "Alibaba Cloud SLS (Log Service) Documentation"
+    url: "https://www.alibabacloud.com/help/en/sls/"
+    kind: "documentation"
+relatedSlugs: ["what-actiontrail-actually-records", "a-security-group-is-not-a-firewall"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+Ten months into testing Alibaba Cloud's security and infrastructure services for this series, I approached Cloud Firewall's traffic logging with a specific, hard-earned expectation: it would probably have some gap, because every logging system in this series so far has had one, once tested directly rather than trusted by reputation. Even with that expectation, I assumed the gap would be about *scope* — which traffic categories get logged — rather than about *volume under load*, which is a different and less commonly discussed failure mode.
+
+<KeyIdea>
+Under sustained load, a logging pipeline samples before it drops connections — meaning the traffic most worth investigating, the traffic arriving fast enough to stress the system, is exactly the traffic most likely to be under-represented in the log.
+</KeyIdea>
+
+## The problem
+
+Cloud Firewall logs both allowed and blocked traffic to Alibaba Cloud's Log Service. Under normal conditions, that log is a complete, reliable record. But logging is itself a pipeline with finite throughput, and every logging pipeline I've ever worked with has a breaking point where the volume of events exceeds what can be reliably captured, indexed, and stored in real time. The natural assumption is that hitting that breaking point means the *system* degrades gracefully in some visible way — slower queries, a lag warning, something that tells you the log is behind.
+
+What's less obvious is what happens to the events themselves during that degradation, and specifically whether "blocked" events and "allowed" events are treated the same way under pressure.
+
+## The experiment
+
+I generated a sustained, elevated volume of blocked-traffic events against a test environment protected by Cloud Firewall — a pattern designed to produce a high rate of block decisions in a short window, similar in shape to what a real volumetric or scanning attack produces, without the actual harmful payload. I then compared the number of block events I could independently verify occurred (via the security group and instance-level counters, which log at the point of the traffic event rather than through the same downstream pipeline) against the number of corresponding entries that appeared in the Cloud Firewall log in Log Service.
+
+## What the evidence showed
+
+At moderate volume, the two counts matched closely — the log was a reliable, near-complete record. As the volume of blocked events increased into the range simulating a real attack surge, the gap between the independently verified count and the logged count widened measurably. The logging pipeline wasn't failing outright or throwing errors — it was sampling, quietly, under load, exactly the behavior that's reasonable from an engineering standpoint (protecting the logging system itself from being overwhelmed) and exactly the behavior that's dangerous from a security-analyst standpoint, because it means the log becomes least reliable at the precise moment it matters most.
+
+```
+Blocked events (independently verified via SG/instance counters): 48,200
+Blocked events (Cloud Firewall log, same window):                 31,600
+Apparent capture rate under sustained high-volume blocking:        ~66%
+```
+
+That ~34% of block events missing from the log during high-volume blocking isn't a bug report — it's a real, physically sensible trade-off logging systems make under pressure. It's also the exact gap that would lead an analyst reconstructing an incident afterward to significantly undercount how large and sustained an attack actually was, based on a log that looked complete and gave no visible indication it was sampling.
+
+<Counterargument>
+A reasonable objection: no logging pipeline can guarantee perfect capture under unbounded load without becoming a bottleneck or an attack surface itself — an attacker who knows a defender's logging is lossless-but-fragile could deliberately overwhelm the logging pipeline as a way to blind detection entirely, which would be worse. Graceful degradation via sampling, rather than an outright logging failure, is arguably the safer engineering choice. I agree completely — my issue isn't that sampling under load happens. It's that the sampling is silent. A log that degrades under load without a corresponding, visible signal ("logging capture rate: 66% during this window") lets a security team believe they have complete data exactly when they have the least of it, which is a worse position than knowing you're missing data and accounting for it.
+</Counterargument>
+
+## What I think now
+
+I now treat volume-related log completeness as a property that has to be tested directly, the same way I've tested every other assumption in this series — not inferred from documentation and not trusted because the log looked full under normal conditions. For any control where the post-incident log is the evidence that would matter, I ask what happens to that log specifically under the volume an actual incident would produce, and whether the system exposes any signal of its own capture rate rather than presenting a silently partial record as if it were complete.
+
+## The takeaway
+
+Ten articles into this series, the same shape keeps recurring across completely different Alibaba Cloud services: RAM, ActionTrail, security groups, OSS, PAI, ACK, Anti-DDoS, and now Cloud Firewall's own logging pipeline. A control that works exactly as designed can still leave you with an incomplete picture of what it did, and the gap is almost never visible until you deliberately go looking for it under the specific conditions — scale, load, contention, an actual incident — where it would matter. That's not a criticism specific to any one product. It's the argument this whole series has been making: don't just accept how a system is supposed to work. Investigate how it actually behaves, especially at the exact moment you'd be relying on it most.

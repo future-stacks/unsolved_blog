@@ -55,6 +55,42 @@ export const glossary: GlossaryTerm[] = [
     definition:
       "The scope of impact if a given component, credential, or failure is compromised or fails. Reducing blast radius means limiting what a single point of failure can affect.",
   },
+  {
+    term: "RAM (Resource Access Management)",
+    slug: "ram",
+    definition:
+      "Alibaba Cloud's identity and access control service. RAM lets an account create sub-identities and attach policies to them, similar in spirit to RBAC but scoped to cloud resources and API actions rather than a Kubernetes cluster.",
+  },
+  {
+    term: "Security Group",
+    slug: "security-group",
+    definition:
+      "A virtual firewall attached to Alibaba Cloud ECS instances that controls inbound and outbound traffic by IP, port, and protocol. Functions at the instance level, not the network level — closer to a host firewall than a network-wide policy.",
+  },
+  {
+    term: "ActionTrail",
+    slug: "actiontrail",
+    definition:
+      "Alibaba Cloud's audit logging service, recording API calls made against an account's resources. What it captures depends on the event type and configured trail scope — not every call is logged with the same level of detail by default.",
+  },
+  {
+    term: "OSS (Object Storage Service)",
+    slug: "oss",
+    definition:
+      "Alibaba Cloud's object storage product. Buckets and individual objects each carry their own access control list and policy, which is a common source of unintended public exposure when the two layers disagree.",
+  },
+  {
+    term: "PAI (Platform for AI)",
+    slug: "pai",
+    definition:
+      "Alibaba Cloud's managed platform for training, deploying, and serving machine learning models, covering everything from data labeling to model inference endpoints.",
+  },
+  {
+    term: "ACK (Container Service for Kubernetes)",
+    slug: "ack",
+    definition:
+      "Alibaba Cloud's managed Kubernetes offering. It removes control-plane operations from the user, but the cluster's security posture — RBAC, network policy, admission control — remains the operator's responsibility.",
+  },
 ];
 
 export function getGlossaryTerm(slug: string) {

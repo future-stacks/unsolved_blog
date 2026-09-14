@@ -1,0 +1,72 @@
+---
+title: "A Security Group Is Not a Firewall, Even Though Alibaba Cloud Lets You Pretend It Is"
+slug: "a-security-group-is-not-a-firewall"
+subtitle: "Security groups and Cloud Firewall solve overlapping but distinct problems, and using one where you need the other produces a gap that's easy to miss because both controls report 'traffic allowed' the same way."
+author: "Hope Akpabio"
+category: "Cloud Security"
+series: "inside-alibaba-cloud"
+seriesOrder: 3
+date: "2026-01-14"
+excerpt: "It's tempting to treat an ECS security group as 'the firewall' for a workload. That framing quietly drops the parts of the traffic path a security group was never designed to see."
+tags: ["Alibaba Cloud", "Security Group", "Networking", "Cloud Security"]
+audiences: ["engineer", "student"]
+keyIdea: "A security group decides whether traffic reaches an instance's network interface. It has no opinion about what that traffic contains, where it's ultimately headed inside your application, or whether it looks like an attack in progress rather than a permitted connection."
+sources:
+  - label: "Alibaba Cloud Security Group Documentation"
+    url: "https://www.alibabacloud.com/help/en/ecs/user-guide/security-groups/"
+    kind: "documentation"
+  - label: "Alibaba Cloud Cloud Firewall Documentation"
+    url: "https://www.alibabacloud.com/help/en/cloud-firewall/"
+    kind: "documentation"
+relatedSlugs: ["the-castle-was-never-the-problem", "cloud-firewall-logs-everything-except-what-it-drops"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+"We have a security group locked down to port 443" is a sentence that sounds like a complete security posture. It has the shape of one — a rule, a port, a scope. Early on, I treated a tightly configured <GlossaryTerm slug="security-group">security group</GlossaryTerm> as functionally equivalent to "this instance has a firewall in front of it," full stop.
+
+<KeyIdea>
+A security group decides whether traffic reaches an instance's network interface. It has no opinion about what that traffic contains, where it's ultimately headed inside your application, or whether it looks like an attack in progress rather than a permitted connection.
+</KeyIdea>
+
+## The problem
+
+A security group is a stateful, instance-level allow-list operating on IP, port, and protocol. That's genuinely useful — it's the first and cheapest thing worth locking down, and most breaches I've read post-mortems of involved a security group that was wider than it needed to be. But "allow port 443 from anywhere" is a decision about which packets are permitted to arrive, not a decision about what happens to the (entirely permitted) HTTP request once it does. A security group cannot tell the difference between a legitimate TLS handshake and the opening move of a credential-stuffing campaign, because both are, from a security group's point of view, permitted traffic on port 443.
+
+Alibaba Cloud's Cloud Firewall product exists precisely because of this gap — it operates with visibility into traffic patterns, threat intelligence, and application-layer behavior that a security group was never built to have. But because security groups are configured earlier, more often, and by more people (every ECS instance gets one; Cloud Firewall is a deliberate, separate product decision), it's easy for "we have security groups" to quietly stand in for "we have a firewall" in a team's mental model, without anyone consciously deciding that's an acceptable trade-off.
+
+## The experiment
+
+I set up an ECS instance with a security group scoped tightly to port 443 from any source — the configuration most teams would sign off on as "reasonably locked down." I then ran a simulated credential-stuffing pattern against a login endpoint on that instance: several thousand authentication attempts from a rotating set of source IPs, all arriving on port 443, all completing valid TLS handshakes.
+
+The security group allowed every single request. That's not a failure — it's exactly what a security group scoped to "port 443, any source" is supposed to do. The question was what, if anything, else would have noticed.
+
+## What the evidence showed
+
+Nothing at the security group layer flagged the pattern, logged it as anomalous, or throttled it, because rate and pattern analysis isn't a security group's job. With Cloud Firewall enabled in front of the same instance and its threat-intelligence and traffic-pattern features active, the same request pattern was flagged and rate-limited well before it reached the completion threshold that would represent a real compromise. The instance-level control and the traffic-inspection control caught structurally different things, and only one of them was doing the job "we have a firewall" implies.
+
+```
+# Security group rule — this is the entire security posture
+# a "port 443, any source" rule expresses:
+Direction: Inbound
+Protocol: TCP
+Port range: 443/443
+Authorization: 0.0.0.0/0
+Action: Allow
+```
+
+That single rule is complete and correct for its actual job. It was never going to be the thing that noticed several thousand login attempts arriving in a pattern no legitimate user produces.
+
+<Counterargument>
+You might reasonably say that application-layer defenses — rate limiting, CAPTCHA, anomaly detection — belong in the application or an API gateway, not in a network security product at all, and that expecting Cloud Firewall (or any perimeter product) to be the layer that catches credential stuffing is itself a category error. I largely agree that defense in depth means the application shouldn't rely on the network layer alone. But the point of this piece isn't "Cloud Firewall is where credential-stuffing defense belongs." It's that a security group specifically was never a candidate for that job, and treating "we have a security group" as satisfying the general question of "do we have traffic-level protection" skips past that fact silently.
+</Counterargument>
+
+## What I think now
+
+I now describe security groups by what they actually do — "instance-level, stateful, IP-and-port filtering" — rather than by the word "firewall," specifically because the word invites exactly the substitution I made for years. When someone tells me a workload "has a firewall," the next question is which layer: security group, Cloud Firewall, an application-layer control, or some combination, and what each one is and isn't watching for.
+
+## The takeaway
+
+A security group is a real, useful, and frequently underused control — most teams should tighten theirs. But it answers "should this packet be allowed to arrive" and nothing about what happens after arrival. Calling it "the firewall" collapses a layered problem into a single control that was never built to cover the whole thing.

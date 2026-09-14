@@ -1,0 +1,67 @@
+---
+title: "Anti-DDoS Basic Is a Default, Not a Defense"
+slug: "anti-ddos-basic-is-a-default-not-a-defense"
+subtitle: "Every Alibaba Cloud instance ships with some DDoS protection already attached. Knowing its actual mitigation threshold changes how much comfort that fact should provide."
+author: "Hope Akpabio"
+category: "Infrastructure"
+series: "inside-alibaba-cloud"
+seriesOrder: 7
+date: "2026-05-06"
+excerpt: "Free, built-in DDoS protection sounds like a solved problem until you find the specific number where it stops being free protection and starts being a decision you need to make."
+tags: ["Alibaba Cloud", "Anti-DDoS", "Infrastructure", "Cloud Security"]
+audiences: ["engineer", "student"]
+keyIdea: "Anti-DDoS Basic's mitigation capacity is a specific, finite number, not an abstract guarantee of 'protection.' Whether that number covers your actual risk is a sizing question nobody answers by default."
+sources:
+  - label: "Alibaba Cloud Anti-DDoS Documentation"
+    url: "https://www.alibabacloud.com/help/en/ddos-protection/"
+    kind: "documentation"
+  - label: "Cloudflare: What Is a DDoS Attack?"
+    url: "https://www.cloudflare.com/learning/ddos/what-is-a-ddos-attack/"
+    kind: "research"
+relatedSlugs: ["a-security-group-is-not-a-firewall", "cloud-firewall-logs-everything-except-what-it-drops"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+Every ECS instance on Alibaba Cloud comes with Anti-DDoS Basic attached automatically, at no additional cost. That fact tends to get compressed, in conversation, into "we're protected against DDoS" — a clean, closed statement that sounds like it resolves the question rather than opening a more specific one.
+
+<KeyIdea>
+Anti-DDoS Basic's mitigation capacity is a specific, finite number, not an abstract guarantee of "protection." Whether that number covers your actual risk is a sizing question nobody answers by default.
+</KeyIdea>
+
+## The problem
+
+Anti-DDoS Basic mitigates volumetric attacks up to a defined threshold — a real, published, and comparatively modest capacity relative to the scale of a serious, sustained attack. It's genuinely useful against the low-grade, opportunistic traffic that constitutes a meaningful share of internet background noise. It was never sized, priced, or marketed as protection against a determined, large-scale attack — that's what Anti-DDoS Pro and Enterprise exist for, as paid, explicitly-provisioned tiers with dramatically higher mitigation capacity.
+
+The gap isn't that Alibaba Cloud hides this — the tiered structure and capacity differences are documented plainly. The gap is that "some DDoS protection, automatically, for free" is such a reassuring starting point that it's easy to never ask the follow-up question: protection up to what threshold, and does that threshold have any relationship to what my actual exposure looks like.
+
+## The experiment
+
+I looked at this less as a live-fire test (simulating a genuine large-scale volumetric attack against real infrastructure is both impractical to do responsibly and unnecessary to make the point) and more as a sizing exercise: comparing Anti-DDoS Basic's documented mitigation capacity against publicly reported attack sizes from recent years, for a workload profile representative of a small-to-mid-size production service — the kind of workload most teams running a handful of ECS instances actually have, not a hyperscale target.
+
+## What the evidence showed
+
+Anti-DDoS Basic's mitigation capacity comfortably covers the low end of that spectrum — exactly the opportunistic, unsophisticated traffic it's designed for. It does not remotely approach the scale of attacks that have been publicly reported against real infrastructure in recent years, which routinely exceed Basic's threshold by one or more orders of magnitude. That's not a flaw in Basic — it was never positioned as protection against that scale of event. But "Anti-DDoS Basic is attached to every instance" and "we have meaningful DDoS protection against a real attack" are, numerically, very different claims, and only the first one is automatically true.
+
+```
+Anti-DDoS Basic:     mitigation capacity in the low single-digit Gbps range
+Anti-DDoS Pro:       provisioned capacity, scaled to purchased tier
+Reported large-scale
+volumetric attacks:  routinely exceed Basic's threshold by 10-100x
+```
+
+The specific numbers shift year over year as both attack scale and mitigation products evolve — which is itself part of the point. A threshold that felt adequate when a team last checked it can become inadequate purely because the landscape moved, with no change on the team's end at all.
+
+<Counterargument>
+It's fair to say that most workloads genuinely don't need Pro or Enterprise-tier DDoS protection — the cost is real, and provisioning for a worst-case, headline-scale attack when your actual risk profile is a small internal tool or a low-traffic service is arguably over-engineering. I agree with that in specific cases. The argument here isn't "everyone should upgrade." It's that the decision to stay on Basic should be an explicit sizing decision — someone looked at the threshold, looked at the workload's actual exposure and business impact if taken offline, and decided Basic's capacity was sufficient — rather than a default nobody examined because "we have some protection" felt like enough of an answer to stop asking.
+</Counterargument>
+
+## What I think now
+
+I now ask for the specific mitigation threshold number, compare it against the workload's realistic exposure (public-facing, revenue-relevant, previously targeted), and treat "we're on Anti-DDoS Basic" as the beginning of a sizing conversation rather than its conclusion. For anything public-facing and business-critical, that conversation usually ends in at least evaluating Pro, even if the final decision is still to stay on Basic for cost reasons — the point is that it becomes a decision, not a default.
+
+## The takeaway
+
+"We have DDoS protection" collapses a real, sized, tiered product into a single reassuring phrase. Anti-DDoS Basic is a genuinely useful default with a specific, finite capacity — not a substitute for asking whether that capacity matches your actual risk. The number is public. The sizing conversation using that number is the part that has to happen deliberately.

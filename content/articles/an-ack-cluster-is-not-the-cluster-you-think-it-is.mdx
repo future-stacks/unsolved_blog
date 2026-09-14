@@ -1,0 +1,68 @@
+---
+title: "ACK Removes the Cluster You Manage. Not the One You're Responsible For."
+slug: "an-ack-cluster-is-not-the-cluster-you-think-it-is"
+subtitle: "A managed control plane changes what you operate. It does not change what you're accountable for when something inside the cluster goes wrong."
+author: "Hope Akpabio"
+category: "Infrastructure"
+series: "inside-alibaba-cloud"
+seriesOrder: 5
+date: "2026-03-10"
+excerpt: "Moving to Alibaba Cloud's managed Kubernetes service removed a real category of operational burden. It removed none of the security decisions that actually determine whether a cluster is safe."
+tags: ["Alibaba Cloud", "ACK", "Kubernetes", "Infrastructure"]
+audiences: ["engineer", "recruiter"]
+keyIdea: "Managed Kubernetes shrinks the list of things you operate. It leaves the list of things you're responsible for almost entirely intact — RBAC, network policy, admission control, and workload configuration are still yours."
+sources:
+  - label: "Alibaba Cloud ACK Documentation"
+    url: "https://www.alibabacloud.com/help/en/ack/"
+    kind: "documentation"
+  - label: "Kubernetes Shared Responsibility (CNCF)"
+    url: "https://kubernetes.io/docs/concepts/security/"
+    kind: "documentation"
+relatedSlugs: ["the-castle-was-never-the-problem", "ram-policies-look-like-rbac"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+Migrating a self-managed Kubernetes cluster to <GlossaryTerm slug="ack">ACK</GlossaryTerm> felt, in the first week, like crossing a security posture off the list. No more patching etcd. No more control-plane upgrades at 2 a.m. No more worrying about API server availability. It was easy to let that relief generalize into a broader, unstated belief: managed Kubernetes means a more secure Kubernetes, full stop.
+
+<KeyIdea>
+Managed Kubernetes shrinks the list of things you operate. It leaves the list of things you're responsible for almost entirely intact — RBAC, network policy, admission control, and workload configuration are still yours.
+</KeyIdea>
+
+## The problem
+
+What ACK actually manages is the control plane's operational burden: availability, patching, upgrades, etcd backups. What it explicitly does not manage — and what Alibaba Cloud's own documentation is reasonably clear about, even if the marketing framing around "managed Kubernetes" tends to blur it — is nearly everything that determines whether workloads running *inside* that cluster are secure: RBAC bindings, network policies, pod security configuration, admission control, and what images are allowed to run. All of that remains exactly as much the operator's job on ACK as on a self-managed cluster.
+
+The gap between "the control plane is managed" and "the cluster is secure" is easy to lose sight of precisely because the first part is true and represents a real, meaningful reduction in operational load. That truth makes it easy to extend a feeling of safety to parts of the system that received none of the benefit.
+
+## The experiment
+
+I stood up a default ACK cluster with no additional security configuration beyond what the console's default cluster creation flow applies, then checked three things that a self-managed cluster would need explicit attention to get right: whether default service accounts had any RBAC restrictions beyond Kubernetes' own defaults, whether any network policy existed to restrict pod-to-pod traffic across namespaces, and whether any admission controller was enforcing pod security standards.
+
+## What the evidence showed
+
+Default RBAC matched vanilla Kubernetes defaults — meaning no ACK-specific hardening had been applied, and the same over-privileged default service account behavior that's been a known Kubernetes footgun for years was present unchanged. No network policy existed; every pod in every namespace could reach every other pod, identical to an unconfigured self-managed cluster. No admission controller was enforcing pod security standards, so a pod requesting `privileged: true` or `hostNetwork: true` would be admitted without objection, exactly as it would on a bare `kubeadm` cluster with no additional configuration.
+
+```bash
+kubectl get networkpolicy --all-namespaces
+# No resources found in any namespace.
+
+kubectl get pod -n kube-system default-sa-test -o yaml | grep automountServiceAccountToken
+# automountServiceAccountToken: true   (default, unchanged)
+```
+
+None of this is a defect in ACK. It's a managed control plane doing exactly what "managed control plane" means — managing the control plane — while leaving workload-level security exactly where Kubernetes leaves it by default, which is permissive.
+
+<Counterargument>
+Alibaba Cloud would reasonably point out that ACK offers security add-ons — network policy support via Terway, integration with Security Center, admission control options — and that none of this is hidden; it's opt-in configuration documented alongside the base product, the same shape as most managed Kubernetes offerings from any major cloud provider. That's accurate, and I'm not arguing ACK is unusually insecure relative to its category. The argument is narrower: the *marketing and mental model* around "managed Kubernetes" imply a bigger reduction in operator responsibility than the actual technical boundary delivers, and that gap between perception and the documented shared-responsibility line is where real clusters end up under-configured.
+</Counterargument>
+
+## What I think now
+
+I now treat "we're on managed Kubernetes" as answering exactly one question — who's responsible for control-plane operations — and no others. Every other item on a Kubernetes security checklist (RBAC review, network policy, admission control, pod security standards, image provenance) gets asked and answered explicitly for an ACK cluster, with the same rigor as I'd apply to a self-managed one, because the honest answer is that migrating didn't change who owns those questions.
+
+## The takeaway
+
+A managed control plane is a genuine, valuable reduction in operational burden — I wouldn't go back to self-managing etcd by choice. But it draws a boundary around control-plane operations specifically, not around cluster security generally. Nearly every decision that determines whether workloads inside an ACK cluster are actually safe is still the operator's to make, in exactly the same way it was before the migration.

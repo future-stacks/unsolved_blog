@@ -9,6 +9,14 @@ export const seriesList: SeriesMeta[] = [
     status: "ongoing",
     totalPlanned: 8,
   },
+  {
+    slug: "inside-alibaba-cloud",
+    title: "Inside Alibaba Cloud",
+    description:
+      "Ten months testing what Alibaba Cloud's security, AI, and infrastructure services actually do under pressure — not what the documentation says they do.",
+    status: "complete",
+    totalPlanned: 10,
+  },
 ];
 
 export function getSeriesBySlug(slug: string) {

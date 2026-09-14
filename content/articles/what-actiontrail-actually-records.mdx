@@ -1,0 +1,76 @@
+---
+title: "What ActionTrail Actually Records When Something Goes Wrong"
+slug: "what-actiontrail-actually-records"
+subtitle: "The audit trail exists. Whether it contains the specific field you need during an incident is a separate question, and the answer depends on decisions made long before the incident happened."
+author: "Hope Akpabio"
+category: "Observability"
+series: "inside-alibaba-cloud"
+seriesOrder: 2
+date: "2025-12-10"
+excerpt: "Turning on ActionTrail feels like turning on visibility. It's closer to turning on one particular kind of visibility, with real gaps that only show up when you go looking for them."
+tags: ["Alibaba Cloud", "ActionTrail", "Observability", "Cloud Security"]
+audiences: ["engineer", "researcher"]
+keyIdea: "An enabled audit trail is not the same claim as a complete audit trail. The difference is a specific, checkable list of what a given trail configuration does and doesn't capture — not a vague caveat to wave at later."
+sources:
+  - label: "Alibaba Cloud ActionTrail Documentation"
+    url: "https://www.alibabacloud.com/help/en/actiontrail/"
+    kind: "documentation"
+  - label: "AWS CloudTrail: Logging Data Events"
+    url: "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html"
+    kind: "documentation"
+relatedSlugs: ["observability-isnt-the-same-thing-as-logging", "i-thought-security-meant-blocking-the-attack"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+"We have ActionTrail enabled" was, for a while, a sentence I treated as equivalent to "we can reconstruct what happened." Enabling an audit trail feels like flipping a switch from *no visibility* to *visibility* — a single binary state. The reality is closer to a dial with several positions, and most accounts I've inspected are sitting on a position several notches short of where their owners assume.
+
+<KeyIdea>
+An enabled audit trail is not the same claim as a complete audit trail. The difference is a specific, checkable list of what a given trail configuration does and doesn't capture — not a vague caveat to wave at later.
+</KeyIdea>
+
+## The problem
+
+<GlossaryTerm slug="actiontrail">ActionTrail</GlossaryTerm> distinguishes between management events (API calls that create, modify, or delete resources — creating an ECS instance, changing a RAM policy) and data events (operations on the data inside a resource — reading or writing an object in an OSS bucket, a row in a table). A default trail captures management events across all regions. Data events are opt-in, configured per resource, and carry a real cost at scale, which is exactly why they're not on by default.
+
+That distinction rarely shows up until the moment someone needs it. "Enable ActionTrail" is a checkbox most teams complete once during initial account setup, and it produces a trail that answers "was this ECS instance created or modified" extremely well, while answering "was this specific object in this bucket read by this identity" not at all — because that's a data event, and data events were never turned on.
+
+## The experiment
+
+I set up a trail with default settings, then simulated two scenarios that map to two different kinds of real incidents:
+
+**Scenario one — a RAM policy is changed to grant broader access.** This is a management event by definition, so I expected it to appear clearly in the trail, with the old and new policy versions, the identity that made the change, and the timestamp.
+
+**Scenario two — that broadened identity then reads a batch of objects from a sensitive OSS bucket.** This is a data event, so I expected — given the trail was still on default settings — that it would either not appear at all, or appear with substantially less detail than the first scenario.
+
+## What the evidence showed
+
+Scenario one behaved exactly as expected: a complete, detailed record of the policy change, immediately queryable. Scenario two produced nothing. Not a truncated record, not a summary entry — nothing, because data-event logging for that bucket had never been explicitly enabled. From the trail's perspective, the object reads never happened.
+
+That gap is not a bug and not a misconfiguration in any strict sense — it's the documented, intended behavior of a default trail. But "documented and intended" and "understood by the person who checked the ActionTrail box eight months ago" are two very different states, and in every account I've reviewed that wasn't set up by someone who had already been burned by this gap, they diverge.
+
+```json
+{
+  "eventName": "AttachPolicy",
+  "eventType": "ApiCall",
+  "userIdentity": { "principalId": "acs:ram::123456789:user/build-pipeline" },
+  "requestParameters": { "policyName": "oss-broad-read", "principalType": "User" },
+  "eventTime": "2025-12-02T03:14:11Z"
+}
+```
+
+That's what scenario one looked like in the trail — everything you'd want. Scenario two's corresponding OSS read events simply don't exist as trail entries at all under default configuration.
+
+<Counterargument>
+It's reasonable to argue that logging every object read across every bucket in an account would be prohibitively expensive and noisy at real scale, and that Alibaba Cloud is right to make data-event logging opt-in rather than forcing every account to pay that cost by default. I agree with that trade-off in the abstract. My objection isn't to the existence of the opt-in boundary — it's to how invisible that boundary is at the moment someone is deciding whether their audit posture is adequate. The fix isn't "log everything." It's making the boundary a decision someone makes on purpose, for the specific buckets and tables where it matters, rather than a default nobody notices they inherited.
+</Counterargument>
+
+## What I think now
+
+I now treat "ActionTrail is on" as the start of a conversation, not the end of one. The follow-up question — which resources have data-event logging enabled, and does that list match the resources that would actually matter in an incident — has to be answered explicitly, resource by resource, for every OSS bucket, RDS instance, or PAI endpoint that would be worth investigating if something went wrong with it.
+
+## The takeaway
+
+A default ActionTrail configuration gives you excellent visibility into what changed and almost none into what was read. For most incidents, the second question is the one that actually matters. Knowing which one you have — before you need it, not during the incident — is the entire difference between an audit trail and an audit trail you can trust.

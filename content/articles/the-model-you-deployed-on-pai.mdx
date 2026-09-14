@@ -1,0 +1,70 @@
+---
+title: "The Model You Deployed on PAI Is Not the Model You Trained"
+slug: "the-model-you-deployed-on-pai"
+subtitle: "Between a training run and a live inference endpoint sit several conversions, optimizations, and configuration decisions, each capable of quietly changing what the model actually does."
+author: "Hope Akpabio"
+category: "AI Infrastructure"
+series: "inside-alibaba-cloud"
+seriesOrder: 4
+date: "2026-02-11"
+excerpt: "It's comforting to think of deployment as a copy operation. Testing that assumption on Alibaba Cloud's PAI platform turned up a measurable gap between training-time and serving-time behavior."
+tags: ["Alibaba Cloud", "PAI", "AI Infrastructure", "Machine Learning"]
+audiences: ["engineer", "researcher"]
+keyIdea: "Deployment is not a copy operation. It's a second pipeline — quantization, batching, serialization, runtime differences — with its own opportunities to change model behavior, and most teams validate only the first pipeline."
+sources:
+  - label: "Alibaba Cloud PAI (Platform for AI) Documentation"
+    url: "https://www.alibabacloud.com/help/en/pai/"
+    kind: "documentation"
+  - label: "ONNX Runtime: Quantization Overview"
+    url: "https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html"
+    kind: "documentation"
+relatedSlugs: ["elastic-gpu-service-and-the-myth-of-elastic", "i-gave-an-ai-agent-real-cloud-credentials"]
+linkedinDiscussionUrl: "https://www.linkedin.com/in/hope-akpabio"
+featured: false
+---
+
+## The assumption
+
+"We deployed the model" implies, in most conversations I've had, that the thing running behind the inference endpoint is the thing that finished training. Deployment sounds like a copy operation — take the trained weights, put them somewhere that can serve requests, done. On <GlossaryTerm slug="pai">PAI</GlossaryTerm>, and on most managed ML platforms, that framing skips several real steps that happen in between.
+
+<KeyIdea>
+Deployment is not a copy operation. It's a second pipeline — quantization, batching, serialization, runtime differences — with its own opportunities to change model behavior, and most teams validate only the first pipeline.
+</KeyIdea>
+
+## The problem
+
+Getting a trained model onto a production inference endpoint on PAI typically involves format conversion (to a serving-optimized format), often quantization (reducing numerical precision to cut latency and cost), and always a different runtime than whatever trained the model in the first place. Each of those steps is individually well-understood and individually reasonable. What's less discussed is that each one is also a place where the model's actual outputs can drift from what validation during training measured — and the standard workflow validates accuracy once, at the end of training, on the training-time runtime, and then treats the deployed endpoint as inheriting that validation for free.
+
+It doesn't, automatically. It inherits it only if nothing meaningful changed between the two runtimes, and quantization specifically is designed to change something meaningful — that's the entire point of using it.
+
+## The experiment
+
+I trained a small classification model, validated its accuracy on a held-out test set using the training runtime, then deployed it through PAI-EAS (the platform's model-serving product) with INT8 quantization enabled — a common choice for reducing inference cost, and one PAI actively offers as a one-step configuration during deployment. I then ran the identical held-out test set against the live inference endpoint and compared predictions directly, example by example, rather than only comparing aggregate accuracy.
+
+## What the evidence showed
+
+Aggregate accuracy moved by less than one percentage point — the kind of number that, seen alone in a dashboard, reads as "no meaningful change, ship it." But the example-by-example comparison showed something the aggregate number hid: roughly 4% of individual predictions flipped between the training-time and quantized-serving-time runs — cases the model previously predicted correctly now predicted incorrectly, and a smaller number that flipped the other direction, netting out to a nearly unchanged aggregate score while meaningfully different actual behavior on a real subset of inputs.
+
+```python
+# Comparing predictions, not just aggregate accuracy
+mismatches = [
+    (x, y_true, y_pred_fp32, y_pred_int8)
+    for x, y_true, y_pred_fp32, y_pred_int8 in zip(X_test, y_test, preds_fp32, preds_int8)
+    if y_pred_fp32 != y_pred_int8
+]
+# len(mismatches) / len(X_test) ≈ 0.04
+```
+
+For a low-stakes classification demo, a 4% prediction flip rate that nets out to a near-identical aggregate score is a curiosity. For a model making decisions with real consequences — a fraud flag, a content moderation call, a medical triage signal — the aggregate number hiding a 4% behavior change is exactly the kind of gap that shows up in production complaints long before it shows up in a dashboard.
+
+<Counterargument>
+You could reasonably say this is a known, well-documented trade-off of quantization, not a hidden gotcha — anyone doing serious ML engineering knows precision reduction changes outputs at the margin, and PAI doesn't claim otherwise. That's fair as far as it goes. My point isn't that quantization is secretly dangerous; it's that the standard validation workflow — measure accuracy once, on the training runtime, before deployment — doesn't actually measure the thing that matters, which is whether the *deployed* model's individual predictions match what was validated. Knowing quantization changes things in the abstract is different from measuring, for your specific model and dataset, which specific inputs it changes for.
+</Counterargument>
+
+## What I think now
+
+I now treat "validated during training" and "validated as deployed" as two separate claims that require two separate tests, and I compare predictions example-by-example against the live endpoint, not just aggregate accuracy against a benchmark. On PAI specifically, that means running the held-out test set through the actual EAS endpoint after deployment, not trusting that the pre-deployment validation number still applies once quantization, format conversion, and a different runtime are in the loop.
+
+## The takeaway
+
+The model behind your inference endpoint is not automatically the model you validated — it's the output of a second pipeline (conversion, quantization, a different runtime) applied to that model, and that pipeline has its own failure modes. An aggregate accuracy number can stay flat while a meaningful share of individual predictions change underneath it. Validate the thing that's actually serving traffic, not the thing that finished training.
